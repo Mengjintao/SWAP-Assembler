@@ -1,0 +1,166 @@
+SWAP-Assembler 2
+==============
+
+SWAP-Assembler is a scalable and fully parallelized genome assembler for massive sequencing data.
+
+Contents
+========
+
+* [Dependencies]
+* [Compiling SWAP-Assembler from source]
+* [Data preprocessing]
+* [Running SWAP-Assembler on a cluster]
+* [Optimizing the parameter k and c]
+* [Format of output files]
+* [Other tools]
+* [Mailing List]
+* [Authors]
+
+Dependencies
+============
+
+SWAP-Assembler requires the following libraries:
+* [GCC version 4.1 or larger] (http://gcc.gnu.org)
+* [MPICH version 1.4 or larger] (http://www.mpich.org)
+
+Compiling SWAP-Assembler from source
+====================================
+
+To compile and install SWAP-Assembler in its source directory:
+	make
+
+
+Data preprocessing 
+==================
+
+SWAP-Assembler only receive one file in fasta format.
+All input files in fastq format should be first transformated to fasta files, 
+and then combine all these files into one file in fasta format. 
+
+Users is suggested to use the script in utils to generate a simulated data named 
+as ecoli.fa to test our software. To do this just use the following command:
+	./utils/gen_test_reads.sh 
+
+
+Running SWAP-Assembler on a cluster
+===================================
+
+SWAP-Assembler works well with MPICH2 on clusters using the following job schedulers, 
+such as:
+
+ * Portable Batch System (PBS)
+ * Load Sharing Facility (LSF)
+
+For example, to assemble a ecoli dataset in ecoli.fa with the kmer length of 31 
+and cutoff threshold of 5 using 64 processes:
+        mpirun -np 64 ./swap -k 31 -c 5 -i ./utils/ecoli.fa -o Ecoli_k31_c5 
+
+
+Assembly Parameters
+===================
+
+Parameters of the driver script, `swap`
+
+ * 'k': size of k-mer (bp) ['23']
+ * 'c': cutoff threshold for edges and k-melecules. ['0'] 
+ * 'i': the dataset file in fasta format. 
+ * 'o': the directory for all the output files.
+ * 'h': help information for the usage of SWAP-Assembler.
+ * 'v': version information of SWAP-Assembler. 
+ * 's': output the kmer Graph in file kmerGraph.txt.
+ * 'j': output the Jung Graph in file JungGraph_arc.txt and JungGraph_mul.txt. 
+ * 'd': output the contig graph in file contigGraph.txt. 
+
+Format of output files
+======================
+ *logtime.txt
+  the time usage used in each step is recoreded in logtime.txt. 
+
+ *noCEcontig.fasta
+  All contigs are collected in this file before the Contig Extension step. 
+  Acuracy of these contigs will be slightly higher than the contigs in CEcontig.fasta. 
+
+ *CEcontig.fasta
+  All contigs are collected in this file after the Contig Extension step. 
+  N50 and Coverage of these contigs will be much higher than the contigs in noCEcontig.fasta.
+
+ *kmerGraph.txt
+  The connections between kmers are included in this file. 
+  If a kmer A overlaps with kmer B and C, then the connections for kmer A is:
+  A B C 
+  B' A'
+  C' A'
+  here B' is the complementary kmer of B. Note that each kmer has at most four overlapping kmers.
+
+ *JungGraph_arc.txt
+  This file is a contig graph used for Pajek, which is an program for large network analysis. 
+  The formart of this file is as follows:
+    Given two kmolecules A and B, and the two are connected with a bi-directed edge e, here the 
+    length of e is l; then the following line will be inject into JungGraph_arc.txt:
+    A  B  l
+ 
+ *JungGraph_mul.txt
+  This file is a contig graph used for Pajek, which is an program for large network analysis. 
+  The formart of this file is as follows:
+    Given two kmolecules A and B, and the two are connected with a bi-directed edge e, here the 
+    multiplicity of e is m; then the following line will be inject into JungGraph_arc.txt:
+    A  B  m
+ 
+ *contigGraph.txt
+  This file presents all information of the whole contig graph, and the format of this file is:
+    Given a kmolecule A, which will have at most 8 neighbors with 8 bi-directed edges e. The ID 
+    of kmolecule A comes first, then four edges for the positive kmer and four edges for the negative
+    kmer will be followed, finally the multiplicity of these edges is prented respectively in the
+    same order. Each edges will be end with '#'.
+ 
+    A edege0# edge1# edge2# edge3# edge4# edge5# edge6# edge7#  multiplicity0 multiplicity1 
+    multiplicity2 multiplicity3 multiplicity4 multiplicity5 multiplicity6 multiplicity7
+
+
+Other tools
+===========
+ *stats
+  stats is used to analysis the quality of contigs, the quality includes number of contigs (longer than 200bp),
+  number of bases in the contigs, the length of longest contig, the average length of contigs, and the N50 
+  size. N50 size includes N50_self and N50_abs, N50_self is the N50 size which use the total number of based 
+  in the output contigs as its reference size, and the N50_abs use the given reference size as its reference size. 
+
+  The usage of this program is  
+    ./stats contigfile referencesize
+  For example, if we need to evaluate the output of S.aureus dataset, just start the script as follows
+    ./stats ./Saur_k31_c2/CEcontig.fasta 2903081
+  Here 2903081 is the reference size of S.aureus. 
+
+ 
+Optimizing the parameter k and c
+================================
+
+To find the optimal value of `k` and 'c', run multiple assemblies and inspect
+the assembly contiguity statistics. The following shell snippet will
+assemble for every odd value of `k` from 19 to 31 and threshold value of 'c'
+from 3 to 7. 
+
+    for k in 19 21 23 25 27 29 31; do
+        for c in 3 4 5 6 7; do
+            echo "k is $k, c is $c"
+            mpirun -np 32 ./swap -k $k -c $c -i ./utils/ecoli.fa -o Ecoli_k${k}_c${c}
+        done
+    done
+
+The default maximum value for `k` is 31. 
+
+Mailing List
+============
+
+For questions related to SWAP-Assembler on genome assembly, contact the
+[mailing list]
+(jt.meng@siat.ac.cn) or (yj.wei@siat.ac.cn)
+
+Authors
+=======
+
+This document  is written by Jintao Meng and Yanjie Wei.
+SWAP-Assembler is written by Jintao Meng.
+
+Copyright 2013 Shenzhen Institutes of Advanced Technology, CAS, Shenzhen, PR. China
+
